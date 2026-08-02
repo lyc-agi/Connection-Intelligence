@@ -6,6 +6,9 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 from .thing import Thing
 from .connection import Connection, ConnectionType
 from .contradiction import Contradiction, ContradictionType
+from .network import NetworkGraph
+from .law import LawLibrary, Law
+from .mapping import IsomorphismMapper
 
 
 class Intelligence:
@@ -15,10 +18,11 @@ class Intelligence:
     智能的本质是解决矛盾，而矛盾的本质在于连接程度的不匹配。
     智能通过以下方式发挥作用:
     1. 感知连接网络中的矛盾
-    2. 将外部矛盾转换为自身相关的矛盾
-    3. 通过调整连接度或创造新连接来解决矛盾
-    4. 利用规律（连接类型）实现目的
-    5. 从更高层次审视矛盾，选择最优解决方案
+    2. 将外部矛盾转换为自身相关的矛盾 (6.1)
+    3. 映射矛盾的结构，建立同构 (6.2)
+    4. 通过调整连接度或创造新连接来解决矛盾 (6.3)
+    5. 利用规律（连接类型）实现目的 (6.4)
+    6. 从更高层次审视矛盾，选择最优解决方案 (6.5)
     """
 
     def __init__(self, name: str = "Intelligence", learning_rate: float = 0.1):
@@ -30,6 +34,14 @@ class Intelligence:
         self._connections: Dict[str, Connection] = {}
         self._contradictions: List[Contradiction] = []
         self._history: List[Dict[str, Any]] = []
+
+        # 新增模块: 图论基础层、规律库、同构映射器
+        self.network = NetworkGraph()
+        self.law_library = LawLibrary()
+        self.isomorphism_mapper = IsomorphismMapper()
+
+        # 智能自身的事物表示 (用于 6.1 外部矛盾→内部矛盾转换)
+        self._self_thing: Optional[Thing] = None
 
         self._resolution_strategies: Dict[str, Callable] = {
             'adjust_degree': self._strategy_adjust_degree,
@@ -478,6 +490,193 @@ class Intelligence:
         """
         self._objective_function = objective_fn
 
+    # ==================== 网络分析 (图论基础层) ====================
+
+    def build_network(self) -> NetworkGraph:
+        """构建并返回当前连接网络的图论表示。"""
+        self.network.build_from(self._things, self._connections)
+        return self.network
+
+    def network_analysis(self) -> str:
+        """返回网络图论分析摘要。"""
+        self.build_network()
+        return self.network.summary()
+
+    def find_critical_things(self, top_k: int = 5) -> List[Tuple[str, float]]:
+        """返回网络中中心性最高的事物。"""
+        self.build_network()
+        return self.network.most_central_things(top_k)
+
+    def find_network_cycles(self) -> List[List[str]]:
+        """检测网络中的环（循环依赖）。"""
+        self.build_network()
+        return self.network.find_cycles()
+
+    def network_density(self) -> float:
+        """返回网络密度。"""
+        self.build_network()
+        return self.network.density()
+
+    # ==================== 规律利用 (6.4) ====================
+
+    def resolve_with_laws(self, contradiction: Optional[Contradiction] = None) -> Optional[Dict[str, Any]]:
+        """
+        利用规律库解决矛盾。
+
+        6.4 原理: 智能利用规律来变换连接。
+        """
+        if contradiction is None:
+            active = self.active_contradictions
+            if not active:
+                return None
+            contradiction = active[0]
+
+        result = self.law_library.apply_best(
+            self._things, list(self._connections.values()), contradiction
+        )
+
+        if result and result.get('success'):
+            contradiction.mark_resolved('law_based', result)
+            self._history.append({
+                'action': 'resolve_with_law',
+                'contradiction_id': contradiction.id,
+                'result': result,
+            })
+
+        return result
+
+    def register_law(self, law: Law) -> None:
+        """注册自定义规律。"""
+        self.law_library.register(law)
+
+    def applicable_laws(self) -> List[Law]:
+        """返回当前状态下适用的规律。"""
+        return self.law_library.find_applicable(
+            self._things, list(self._connections.values())
+        )
+
+    # ==================== 外部矛盾转换 (6.1) ====================
+
+    def register_self(self, name: str = "智能自身", attributes: Optional[Dict[str, Any]] = None) -> Thing:
+        """
+        注册智能自身的事物表示。
+
+        6.1 原理: 外部矛盾需要被转换为智能自身相关的矛盾。
+        智能自身的事物是这种转换的锚点。
+        """
+        self._self_thing = self.add_thing(name, attributes or {'type': 'intelligence'})
+        return self._self_thing
+
+    def convert_external_contradiction(
+        self,
+        external_contradiction: Contradiction,
+        external_things: Dict[str, Thing],
+    ) -> Optional[Contradiction]:
+        """
+        将外部矛盾转换为智能自身的内部矛盾。
+
+        6.1 原理: 只有当外部矛盾被转换为智能自身相关的矛盾时，
+        智能才有动力去解决。
+        """
+        self_id = self._self_thing.id if self._self_thing else None
+
+        internal_contradiction = self.isomorphism_mapper.convert_external_contradiction(
+            external_contradiction=external_contradiction,
+            external_things=external_things,
+            internal_things=self._things,
+            internal_connections=list(self._connections.values()),
+            intelligence_self_id=self_id,
+        )
+
+        if internal_contradiction:
+            self._contradictions.append(internal_contradiction)
+            self._history.append({
+                'action': 'convert_external',
+                'external_id': external_contradiction.id,
+                'internal_id': internal_contradiction.id,
+            })
+
+        return internal_contradiction
+
+    def structural_similarity_to(
+        self,
+        external_things: Dict[str, Thing],
+        external_connections: List[Connection],
+    ) -> float:
+        """
+        计算智能内部网络与外部网络的结构相似度。
+
+        6.2 原理: 载体和干预对象具有相似性，是映射实现的基础。
+        """
+        return self.isomorphism_mapper.structural_similarity(
+            self._things, list(self._connections.values()),
+            external_things, external_connections,
+        )
+
+    # ==================== 创造新连接 (6.3) ====================
+
+    def discover_potential_connections(self, min_degree: float = 0.3) -> List[Dict]:
+        """
+        发现网络中潜在的有价值的缺失连接。
+
+        6.3 原理: 智能创造新的连接。
+        """
+        self.build_network()
+        missing = self.network.find_missing_connections(threshold=min_degree)
+
+        results = []
+        for src_id, tgt_id, suggested in missing:
+            thing_a = self._things.get(src_id)
+            thing_b = self._things.get(tgt_id)
+            results.append({
+                'source': thing_a.name if thing_a else src_id,
+                'target': thing_b.name if thing_b else tgt_id,
+                'source_id': src_id,
+                'target_id': tgt_id,
+                'suggested_degree': suggested,
+            })
+
+        return results
+
+    def find_connection_route(
+        self,
+        source_name: str,
+        target_name: str,
+    ) -> Optional[Dict]:
+        """
+        为两个事物寻找新的连接路径。
+
+        6.3 原理: 智能通过找到新路线，创造原本不存在的连接。
+        """
+        # 通过名称查找事物
+        source_id = None
+        target_id = None
+        for tid, thing in self._things.items():
+            if thing.name == source_name:
+                source_id = tid
+            if thing.name == target_name:
+                target_id = tid
+
+        if not source_id or not target_id:
+            return None
+
+        self.build_network()
+
+        # 搜索路径
+        all_paths = self.network.find_all_paths(source_id, target_id, max_depth=4)
+        bridges = self.network.find_bridge_nodes(source_id, target_id)
+
+        result = {
+            'source': source_name,
+            'target': target_name,
+            'direct_paths': [[self._things.get(tid).name if self._things.get(tid) else tid
+                             for tid in path] for path in all_paths],
+            'bridge_nodes': [self._things.get(bid).name if self._things.get(bid) else bid
+                            for bid in bridges],
+        }
+
+        return result
+
     # ==================== 统计与状态 ====================
 
     @property
@@ -495,6 +694,9 @@ class Intelligence:
             'active_contradictions': len(active),
             'resolution_history_length': len(self._history),
             'learning_rate': self.learning_rate,
+            'laws_available': self.law_library.size,
+            'mappings_built': len(self.isomorphism_mapper.mapping_history),
+            'has_self_representation': self._self_thing is not None,
         }
 
     def network_summary(self) -> str:
